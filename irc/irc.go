@@ -76,6 +76,23 @@ func onCTCPACTION(e *ircevent.Event) {
 		})
 }
 
+func onJOIN(e *ircevent.Event) {
+	b.MessageReceived(
+		e.Code,
+		&bot.ChannelData{
+			Protocol: "irc",
+			Server: ircConn.Server,
+			Channel: e.Arguments[0],
+			IsPrivate: false,
+		},
+		nil,
+		&bot.User{
+			ID: e.Host,
+			Nick: e.Nick,
+			RealName: e.User,
+		})
+}
+
 func getServerName(server string) string {
 	separatorIndex := strings.LastIndex(server, ":")
 	if separatorIndex != -1 {
@@ -110,6 +127,7 @@ func Run(c *Config) {
 	ircConn.AddCallback("001", onWelcome)
 	ircConn.AddCallback("PRIVMSG", onPRIVMSG)
 	ircConn.AddCallback("CTCP_ACTION", onCTCPACTION)
+	ircConn.AddCallback("JOIN", onJOIN)
 
 	err := ircConn.Connect(c.Server)
 	if err != nil {
