@@ -41,6 +41,7 @@ func responseHandler(target string, message string, sender *bot.User) {
 
 func onPRIVMSG(e *ircevent.Event) {
 	b.MessageReceived(
+		e.Code,
 		&bot.ChannelData{
 			Protocol:  "irc",
 			Server:    ircConn.Server,
@@ -57,6 +58,7 @@ func onPRIVMSG(e *ircevent.Event) {
 
 func onCTCPACTION(e *ircevent.Event) {
 	b.MessageReceived(
+		e.Code,
 		&bot.ChannelData{
 			Protocol:  "irc",
 			Server:    ircConn.Server,
