@@ -41,6 +41,7 @@ func responseHandler(target string, message string, sender *bot.User) {
 
 func onPRIVMSG(e *ircevent.Event) {
 	b.MessageReceived(
+		e.Code,
 		&bot.ChannelData{
 			Protocol:  "irc",
 			Server:    ircConn.Server,
@@ -57,6 +58,7 @@ func onPRIVMSG(e *ircevent.Event) {
 
 func onCTCPACTION(e *ircevent.Event) {
 	b.MessageReceived(
+		e.Code,
 		&bot.ChannelData{
 			Protocol:  "irc",
 			Server:    ircConn.Server,
@@ -70,6 +72,23 @@ func onCTCPACTION(e *ircevent.Event) {
 		&bot.User{
 			ID:       e.Host,
 			Nick:     e.Nick,
+			RealName: e.User,
+		})
+}
+
+func onJOIN(e *ircevent.Event) {
+	b.MessageReceived(
+		e.Code,
+		&bot.ChannelData{
+			Protocol: "irc",
+			Server: ircConn.Server,
+			Channel: e.Arguments[0],
+			IsPrivate: false,
+		},
+		nil,
+		&bot.User{
+			ID: e.Host,
+			Nick: e.Nick,
 			RealName: e.User,
 		})
 }
@@ -108,6 +127,7 @@ func Run(c *Config) {
 	ircConn.AddCallback("001", onWelcome)
 	ircConn.AddCallback("PRIVMSG", onPRIVMSG)
 	ircConn.AddCallback("CTCP_ACTION", onCTCPACTION)
+	ircConn.AddCallback("JOIN", onJOIN)
 
 	err := ircConn.Connect(c.Server)
 	if err != nil {

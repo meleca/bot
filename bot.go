@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"time"
+	"strings"
 
 	"github.com/robfig/cron"
 )
@@ -61,7 +62,17 @@ func (b *Bot) startPeriodicCommands() {
 }
 
 // MessageReceived must be called by the protocol upon receiving a message
-func (b *Bot) MessageReceived(channel *ChannelData, message *Message, sender *User) {
+func (b *Bot) MessageReceived(eventCode string, channel *ChannelData, message *Message, sender *User) {
+	if message == nil {
+		b.ExecuteEventCommands(&EventCmd{
+			EventCode: eventCode,
+			Channel: strings.TrimSpace(channel.Channel),
+			ChannelData: channel,
+			User: sender,
+		})
+		return
+	}
+
 	command, err := parse(message.Text, channel, sender)
 	if err != nil {
 		b.handlers.Response(channel.Channel, err.Error(), sender)
