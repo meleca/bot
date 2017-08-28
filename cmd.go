@@ -35,6 +35,7 @@ func (c *ChannelData) URI() string {
 // Message holds the message info - for IRC and Slack networks, this can include whether the message was an action.
 type Message struct {
 	Text     string // The actual content of this Message
+	EventCode string // Event that triggered this message to happen (protocol specific)
 	IsAction bool   // True if this was a '/me does something' message
 }
 
@@ -45,6 +46,13 @@ type PassiveCmd struct {
 	Channel     string       // Channel which the message was sent to
 	ChannelData *ChannelData // Channel and network info
 	User        *User        // User who sent this message
+}
+
+type EventCmd struct {
+	EventCode string // Which event code has actually occured
+	Channel string // Channel wich the message was sent to
+	ChannelData *ChannelData // Channel and network info
+	User *User // User who sent this message
 }
 
 // PeriodicConfig holds a cron specification for periodically notifying the configured channels
@@ -91,11 +99,13 @@ const (
 type passiveCmdFunc func(cmd *PassiveCmd) (string, error)
 type activeCmdFuncV1 func(cmd *Cmd) (string, error)
 type activeCmdFuncV2 func(cmd *Cmd) (CmdResult, error)
+type eventCmdFunc func(cmd *EventCmd) (string, error)
 
 var (
 	commands         = make(map[string]*customCommand)
 	passiveCommands  = make(map[string]passiveCmdFunc)
 	periodicCommands = make(map[string]PeriodicConfig)
+	eventCommands	 = make(map[string]eventCmdFunc)
 )
 
 // RegisterCommand adds a new command to the bot.
@@ -135,6 +145,14 @@ func RegisterPassiveCommand(command string, cmdFunc func(cmd *PassiveCmd) (strin
 	passiveCommands[command] = cmdFunc
 }
 
+// RegisterEventCommand adds a new passive command to the bot.
+// The command should be registered in the Init() func of your package
+// command: String which the user will use to add some behavior in some irc event
+// cmdFunc: Function which will be executed once the irc event occurs
+func RegisterEventCommand(command string, cmdFunc eventCmdFunc) {
+	eventCommands[command] = cmdFunc
+}
+
 // RegisterPeriodicCommand adds a command that is run periodically.
 // The command should be registered in the Init() func of your package
 // config: PeriodicConfig which specify CronSpec and a channel list
@@ -155,6 +173,34 @@ func (b *Bot) executePassiveCommands(cmd *PassiveCmd) {
 	mutex := &sync.Mutex{}
 
 	for k, v := range passiveCommands {
+		if b.isDisabled(k) {
+			continue
+		}
+
+		cmdFunc := v
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			result, err := cmdFunc(cmd)
+			if err != nil {
+				log.Println(err)
+			} else {
+				mutex.Lock()
+				b.handlers.Response(cmd.Channel, result, cmd.User)
+				mutex.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func (b *Bot) ExecuteEventCommands(cmd *EventCmd) {
+	var wg sync.WaitGroup
+	mutex := &sync.Mutex{}
+
+	for k, v := range eventCommands {
 		if b.isDisabled(k) {
 			continue
 		}
